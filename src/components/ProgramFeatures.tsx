@@ -2,16 +2,18 @@
 
 import Link from 'next/link';
 
+interface ProgramItem {
+    text: string;
+    icon?: string;
+}
+
 interface ProgramFeaturesProps {
-    data: {
-        text: string;
-        icon?: string;
-    }[] | null;
+    data: ProgramItem[] | null;
 }
 
 const ProgramFeatures = ({ data }: ProgramFeaturesProps) => {
     // Default data fallback if Sanity is empty/not connected
-    const defaultPrograms = [
+    const defaultPrograms: ProgramItem[] = [
         { text: "Practical Human Resource Management" },
         { text: "BYOB - Build Your Own Business" },
         { text: "Practical Sales Course" },
@@ -22,7 +24,7 @@ const ProgramFeatures = ({ data }: ProgramFeaturesProps) => {
         { text: "B2B Custom Service" }
     ];
 
-    const programs = (data && data.length > 0) ? data : defaultPrograms;
+    const programs: ProgramItem[] = (data && data.length > 0) ? data : defaultPrograms;
 
     return (
         <section id="program-features" className="w-full bg-black py-16 px-4 md:px-0 flex justify-center">

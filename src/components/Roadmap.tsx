@@ -120,7 +120,7 @@ const Roadmap = ({ data }: RoadmapProps) => {
             const milestoneElements = Array.from(mobileRef.current.querySelectorAll('.timeline-card'));
             if (milestoneElements.length === 0) return;
 
-            let nearest: Element | null = null;
+            let nearest: HTMLElement | null = null;
             let minDist = 99999;
             let lastActiveIndex = 0;
 
@@ -130,7 +130,7 @@ const Roadmap = ({ data }: RoadmapProps) => {
                 const dist = Math.abs(y - window.innerHeight / 2);
                 if (dist < minDist) {
                     minDist = dist;
-                    nearest = card;
+                    nearest = card as HTMLElement;
                     lastActiveIndex = i;
                 }
             });
@@ -158,17 +158,17 @@ const Roadmap = ({ data }: RoadmapProps) => {
             // Progress bar
             let progress = 0;
             if (nearest && progressBarRef.current) {
-                if (lastActiveIndex === milestoneElements.length - 1) {
-                    progress = 1;
-                } else {
-                    // @ts-ignore
-                    const containerTop = nearest.parentElement.getBoundingClientRect().top;
-                    const nearestTop = nearest.getBoundingClientRect().top;
-                    // @ts-ignore
-                    const nearestHeight = nearest.offsetHeight;
-                    const scrollPositionInContainer = (nearestTop - containerTop) + (nearestHeight / 2);
-                    // @ts-ignore
-                    progress = scrollPositionInContainer / nearest.parentElement.offsetHeight;
+                const targetCard = nearest as HTMLElement;
+                if (targetCard.parentElement) {
+                    if (lastActiveIndex === milestoneElements.length - 1) {
+                        progress = 1;
+                    } else {
+                        const containerTop = targetCard.parentElement.getBoundingClientRect().top;
+                        const nearestTop = targetCard.getBoundingClientRect().top;
+                        const nearestHeight = targetCard.offsetHeight || 0;
+                        const scrollPositionInContainer = (nearestTop - containerTop) + (nearestHeight / 2);
+                        progress = scrollPositionInContainer / targetCard.parentElement.offsetHeight;
+                    }
                 }
 
                 const containerHeight = mobileRef.current.querySelector('.relative')?.clientHeight || 0;
