@@ -581,7 +581,7 @@ export default function AnalyticsDashboard() {
                                         <BarChart data={sectionEngagement} layout="vertical">
                                             <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                                             <XAxis type="number" hide />
-                                            <YAxis dataKey="name" type="category" width={100} tick={{ fill: '#f59e0b', fontSize: 11, textTransform: 'capitalize' }} />
+                                            <YAxis dataKey="name" type="category" width={100} tick={{ fill: '#f59e0b', fontSize: 11 }} />
                                             <Tooltip
                                                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                                 contentStyle={{ backgroundColor: '#18181b', border: '1px string #27272a' }}

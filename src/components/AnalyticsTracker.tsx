@@ -1,7 +1,7 @@
 "use client"
 
 import { usePathname, useSearchParams } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 
 // Helper to get OS
 const getOS = () => {
@@ -26,7 +26,7 @@ const getBrowser = () => {
     return "Other"
 }
 
-export default function AnalyticsTracker() {
+function TrackerContent() {
     const pathname = usePathname()
     const searchParams = useSearchParams() // For UTM tags
 
@@ -270,4 +270,12 @@ export default function AnalyticsTracker() {
     }
 
     return null
+}
+
+export default function AnalyticsTracker() {
+    return (
+        <Suspense fallback={null}>
+            <TrackerContent />
+        </Suspense>
+    )
 }
