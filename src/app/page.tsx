@@ -1,5 +1,5 @@
 import { client } from "@/sanity/lib/client";
-import { HERO_QUERY, EXPERTS_QUERY, ROADMAP_QUERY, FAQ_QUERY, PROGRAM_QUERY } from "@/sanity/lib/queries";
+import { HERO_QUERY, EXPERTS_QUERY, ROADMAP_QUERY, FAQ_QUERY, PROGRAM_QUERY, EVENTS_QUERY } from "@/sanity/lib/queries";
 import Hero from "@/components/Hero";
 import ProgramFeatures from "@/components/ProgramFeatures";
 import Brochure from "@/components/Brochure";
@@ -10,6 +10,7 @@ import Pitch from "@/components/Pitch";
 import FAQ from "@/components/FAQ";
 import CTA from "@/components/CTA";
 import BookingModal from "@/components/BookingModal";
+import Events from "@/components/Events";
 
 // Revalidate every 60 seconds (ISR)
 export const revalidate = 60;
@@ -20,12 +21,14 @@ export default async function Home() {
   const roadmapData = await client.fetch(ROADMAP_QUERY);
   const faqData = await client.fetch(FAQ_QUERY);
   const programData = await client.fetch(PROGRAM_QUERY);
+  const eventsData = await client.fetch(EVENTS_QUERY);
 
   return (
     <main className="flex flex-col items-center justify-center w-full">
       <Hero data={heroData} />
       <ProgramFeatures data={programData} />
       <Brochure />
+      <Events events={eventsData} />
       <Roadmap data={roadmapData} />
       <ExpertTalk />
       <ExpertMentors data={expertsData} />

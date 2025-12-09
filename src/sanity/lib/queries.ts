@@ -28,6 +28,18 @@ export const FAQ_QUERY = groq`*[_type == "faq"]{
 }`;
 
 export const PROGRAM_QUERY = groq`*[_type == "program"]{
-  text,
-  icon
+  title,
+  description,
+  features,
+  image
+}`;
+
+export const EVENTS_QUERY = groq`*[_type == "event"] | order(date asc) {
+  _id,
+  title,
+  date,
+  location,
+  image,
+  description,
+  status
 }`;

@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   description: "PerpeX B-School website",
 };
 
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 import { GoogleAnalytics } from '@next/third-parties/google'
 
 export default function RootLayout({
@@ -32,6 +33,7 @@ export default function RootLayout({
         suppressHydrationWarning={true}
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-white`}
       >
+        <AnalyticsTracker />
         <Navbar />
         {children}
         <Footer />
