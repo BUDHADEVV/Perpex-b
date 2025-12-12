@@ -9,7 +9,7 @@ import { Lock, TrendingUp, Users, Smartphone, Globe, MousePointer, Calendar, Lay
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1']
 
 type DateRange = '7d' | '30d' | 'all'
-type Tab = 'overview' | 'audience' | 'behavior' | 'tech'
+type Tab = 'overview' | 'audience' | 'behavior' | 'tech' | 'conversions'
 
 export default function AnalyticsDashboard() {
     const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -311,6 +311,127 @@ export default function AnalyticsDashboard() {
         return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name, value }))
     }, [data])
 
+    // 13. Advanced Funnel & Goals (New)
+    const funnelStats = useMemo(() => {
+        const sessions = new Set<string>()
+        const explored = new Set<string>() // Viewed B-School or Brochure section
+        const leads = new Set<string>() // Clicked Book Now or Download
+        const interactors = new Set<string>() // Any click
+
+        // Goal Counts
+        let brochureDownloads = 0
+        let bookingsStarted = 0
+
+        data.forEach(item => {
+            if (item.sessionId) {
+                sessions.add(item.sessionId)
+
+                // Check Section Views for "Exploration"
+                if (item.sections) {
+                    item.sections.forEach((sec: any) => {
+                        if (['bschool', 'brochure', 'program'].some(id => sec.sectionId.includes(id))) {
+                            explored.add(item.sessionId)
+                        }
+                    })
+                }
+
+                // Check Interactions for "Leads"
+                if (item.interactions) {
+                    item.interactions.forEach((int: any) => {
+                        interactors.add(item.sessionId)
+                        const text = (int.innerText || '').toLowerCase()
+                        const id = (int.elementId || '').toLowerCase()
+
+                        if (text.includes('download') || text.includes('brochure')) {
+                            leads.add(item.sessionId)
+                            brochureDownloads++
+                        }
+                        else if (text.includes('book') || text.includes('interview') || text.includes('apply')) {
+                            leads.add(item.sessionId)
+                            bookingsStarted++
+                        }
+                    })
+                }
+            }
+        })
+
+        const funnelData = [
+            { name: 'Total Visitors', value: sessions.size, fill: '#3b82f6' },
+            { name: 'Program Exploration', value: explored.size, fill: '#8b5cf6' },
+            { name: 'Leads (Download/Book)', value: leads.size, fill: '#10b981' }
+        ]
+
+        return { funnelData, brochureDownloads, bookingsStarted, totalSessions: sessions.size }
+    }, [data])
+
+    // 14. Traffic Channel ROI (New)
+    const channelPerformance = useMemo(() => {
+        const channels: Record<string, { sessions: number, conversions: number }> = {}
+
+        data.forEach(item => {
+            if (!item.sessionId) return
+
+            // Classify Channel
+            let channel = 'Direct'
+            if (item.utmMedium === 'cpc' || item.utmSource === 'google_ads') channel = 'Paid Search'
+            else if (['facebook', 'instagram', 'linkedin', 'twitter'].includes(item.utmSource) || ['cpc', 'sponsored'].includes(item.utmMedium)) channel = 'Paid Social'
+            else if (item.referrer && (item.referrer.includes('google') || item.referrer.includes('bing'))) channel = 'Organic Search'
+            else if (item.referrer && item.referrer !== 'Direct' && !item.referrer.includes(window.location.host)) channel = 'Referral'
+
+            if (!channels[channel]) channels[channel] = { sessions: 0, conversions: 0 }
+
+            // We count sessions roughly here (simplification: last event wins attribution)
+            // Ideally we'd attribute per session ID, but let's just count events effectively for now or improve:
+            // Let's use a Set per channel to define unique sessions
+        })
+
+        // Re-pass to do it right: Map SessionID -> Channel -> ConversionStatus
+        const sessionMeta: Record<string, { channel: string, converted: boolean }> = {}
+
+        data.forEach(item => {
+            if (!item.sessionId) return
+
+            // Determine Channel (Priority: Paid > Organic > Direct)
+            let channel = 'Direct'
+            if (item.utmMedium === 'cpc' || item.utmSource === 'google_ads') channel = 'Paid Search'
+            else if (['facebook', 'instagram', 'linkedin', 'twitter'].includes(item.utmSource) || ['cpc', 'sponsored'].includes(item.utmMedium)) channel = 'Paid Social'
+            else if (item.referrer && (item.referrer.includes('google') || item.referrer.includes('bing')) && !item.utmMedium) channel = 'Organic Search'
+            else if (item.referrer && item.referrer !== 'Direct' && !item.referrer.includes(window.location.host)) channel = 'Referral'
+
+            // Assign Channel to Session (Last Touch or First Touch? Let's do Last Touch seen)
+            if (!sessionMeta[item.sessionId]) sessionMeta[item.sessionId] = { channel, converted: false }
+            else if (channel !== 'Direct') sessionMeta[item.sessionId].channel = channel // Overwrite direct if meaningful source found
+
+            // Check Conversion
+            if (item.interactions) {
+                item.interactions.forEach((int: any) => {
+                    const text = (int.innerText || '').toLowerCase()
+                    if (text.includes('download') || text.includes('brochure') || text.includes('book') || text.includes('interview')) {
+                        sessionMeta[item.sessionId].converted = true
+                    }
+                })
+            }
+        })
+
+        // Aggregate
+        const stats: Record<string, { sessions: number, conversions: number }> = {}
+        Object.values(sessionMeta).forEach(meta => {
+            if (!stats[meta.channel]) stats[meta.channel] = { sessions: 0, conversions: 0 }
+            stats[meta.channel].sessions++
+            if (meta.converted) stats[meta.channel].conversions++
+        })
+
+        return Object.entries(stats)
+            .map(([name, val]) => ({
+                name,
+                sessions: val.sessions,
+                conversions: val.conversions,
+                rate: val.sessions > 0 ? Math.round((val.conversions / val.sessions) * 100) : 0
+            }))
+            .sort((a, b) => b.conversions - a.conversions)
+
+    }, [data])
+
     // 9. AI Insights
     const aiInsights = useMemo(() => {
         const insights: { title: string, desc: string, value: string, color: string }[] = []
@@ -404,16 +525,17 @@ export default function AnalyticsDashboard() {
                 </header>
 
                 {/* Tabs Navigation */}
-                <nav className="flex items-center gap-8 border-b border-zinc-800 text-sm font-medium">
-                    {(['overview', 'audience', 'behavior', 'tech'] as Tab[]).map((tab) => (
+                <nav className="flex items-center gap-8 border-b border-zinc-800 text-sm font-medium overflow-x-auto">
+                    {(['overview', 'audience', 'behavior', 'conversions', 'tech'] as Tab[]).map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
-                            className={`flex items-center gap-2 border-b-2 pb-3 transition-colors ${activeTab === tab ? 'border-blue-500 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+                            className={`flex items-center gap-2 border-b-2 pb-3 transition-colors shrink-0 ${activeTab === tab ? 'border-blue-500 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
                         >
                             {tab === 'overview' && <LayoutGrid size={16} />}
                             {tab === 'audience' && <Users size={16} />}
                             {tab === 'behavior' && <Activity size={16} />}
+                            {tab === 'conversions' && <Layers size={16} />}
                             {tab === 'tech' && <Smartphone size={16} />}
                             <span className="capitalize">{tab}</span>
                         </button>
@@ -624,6 +746,99 @@ export default function AnalyticsDashboard() {
                             </div>
                         )}
 
+
+
+                        {/* TAB: CONVERSIONS (New) */}
+                        {activeTab === 'conversions' && (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                                <div className="grid gap-6 md:grid-cols-2">
+                                    {/* Funnel Chart */}
+                                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 md:col-span-2">
+                                        <h3 className="mb-4 text-lg font-bold">Conversion Funnel</h3>
+                                        <div className="h-64 w-full">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <BarChart data={funnelStats.funnelData} layout="vertical" barSize={40}>
+                                                    <XAxis type="number" hide />
+                                                    <YAxis dataKey="name" type="category" width={180} tick={{ fill: '#fff', fontSize: 12 }} />
+                                                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: '#18181b', border: 'none' }} />
+                                                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                                                        {funnelStats.funnelData.map((entry, index) => (
+                                                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                                                        ))}
+                                                    </Bar>
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                        <div className="mt-4 grid grid-cols-3 gap-4 text-center">
+                                            {funnelStats.funnelData.map((step, i) => (
+                                                <div key={i} className="rounded bg-white/5 p-3">
+                                                    <div className="text-2xl font-bold">{step.value}</div>
+                                                    <div className="text-xs text-zinc-400">{step.name}</div>
+                                                    {i > 0 && (
+                                                        <div className="mt-1 text-xs text-emerald-500 font-medium">
+                                                            {Math.round((step.value / (funnelStats.funnelData[0].value || 1)) * 100)}% Conv.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Goal Breakdown */}
+                                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6">
+                                        <h3 className="mb-4 text-lg font-bold">Goal Completions</h3>
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between p-4 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 rounded bg-blue-500/10 text-blue-500"><LayoutGrid size={20} /></div>
+                                                    <div>
+                                                        <div className="font-bold text-white">Brochure Downloads</div>
+                                                        <div className="text-xs text-zinc-500">Resource Interest</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-2xl font-bold text-white">{funnelStats.brochureDownloads}</div>
+                                            </div>
+                                            <div className="flex items-center justify-between p-4 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 rounded bg-green-500/10 text-green-500"><Calendar size={20} /></div>
+                                                    <div>
+                                                        <div className="font-bold text-white">Interviews / Bookings</div>
+                                                        <div className="text-xs text-zinc-500">High Intent Leads</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-2xl font-bold text-white">{funnelStats.bookingsStarted}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Channel ROI */}
+                                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6">
+                                        <h3 className="mb-4 text-lg font-bold">Traffic Channel ROI</h3>
+                                        <div className="space-y-3">
+                                            <div className="grid grid-cols-4 text-xs font-bold text-zinc-500 uppercase pb-2 border-b border-zinc-800">
+                                                <span className="col-span-2">Channel</span>
+                                                <span className="text-right">Sessions</span>
+                                                <span className="text-right">Conv. Rate</span>
+                                            </div>
+                                            {channelPerformance.map((c, i) => (
+                                                <div key={i} className="grid grid-cols-4 items-center text-sm">
+                                                    <span className="col-span-2 text-white font-medium truncate" title={c.name}>{c.name}</span>
+                                                    <span className="text-right text-zinc-400">{c.sessions}</span>
+                                                    <div className="text-right flex items-center justify-end gap-2">
+                                                        <span className={c.rate > 5 ? 'text-green-400' : 'text-zinc-500'}>{c.rate}%</span>
+                                                        <div className="w-12 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                                            <div className="h-full bg-green-500" style={{ width: `${Math.min(100, c.rate * 2)}%` }}></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {channelPerformance.length === 0 && <p className="col-span-4 text-center text-zinc-500 py-4">No data yet</p>}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* TAB: TECH */}
                         {activeTab === 'tech' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
@@ -658,6 +873,6 @@ export default function AnalyticsDashboard() {
                     </>
                 )}
             </div>
-        </div>
+        </div >
     )
 }
