@@ -44,9 +44,27 @@ function TrackerContent() {
     const [showSurvey, setShowSurvey] = useState(false)
     const [demographics, setDemographics] = useState({ age: 'Unknown', gender: 'Unknown' })
     const [surveySubmitted, setSurveySubmitted] = useState(false)
+    const [sessionInfo, setSessionInfo] = useState({ sessionId: '', visitorType: 'New' })
 
-    // Load survey status
     useEffect(() => {
+        // 1. Session Management
+        let sId = sessionStorage.getItem('perpex_analytics_sid')
+        if (!sId) {
+            sId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36)
+            sessionStorage.setItem('perpex_analytics_sid', sId)
+        }
+
+        // 2. Visitor Management
+        const isReturning = localStorage.getItem('perpex_analytics_returning')
+        const vType = isReturning ? 'Returning' : 'New'
+
+        if (!isReturning) {
+            localStorage.setItem('perpex_analytics_returning', 'true')
+        }
+
+        setSessionInfo({ sessionId: sId, visitorType: vType })
+
+        // 3. Survey Status
         const savedDemo = localStorage.getItem('perpex_analytics_demo')
         if (savedDemo) {
             setDemographics(JSON.parse(savedDemo))
@@ -182,7 +200,10 @@ function TrackerContent() {
                 timestamp: new Date().toISOString(),
 
                 gender: demographics.gender,
-                ageGroup: demographics.age
+                ageGroup: demographics.age,
+
+                sessionId: sessionInfo.sessionId,
+                visitorType: sessionInfo.visitorType
             }
 
             await fetch('/api/analytics/track', {

@@ -141,5 +141,15 @@ export const analytics = defineType({
             type: 'datetime',
             initialValue: () => new Date().toISOString(),
         }),
+        defineField({
+            name: 'sessionId',
+            title: 'Session ID',
+            type: 'string',
+        }),
+        defineField({
+            name: 'visitorType',
+            title: 'Visitor Type',
+            type: 'string', // 'New' or 'Returning'
+        }),
     ],
 })
